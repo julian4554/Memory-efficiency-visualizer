@@ -20,3 +20,5 @@ Makefile
 .idea/
 .vscode/
 *.iml
+
+*.zip
