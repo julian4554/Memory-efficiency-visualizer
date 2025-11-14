@@ -4,7 +4,7 @@ Ich hab dieses Programm geschrieben um ein besseres Verständnis für Code Effiz
 Wissen entsteht nicht durch Beobachten, sondern durch Nachbauen.
 Die Software ist ein interaktives Lern- und Analyseprogramm zur Visualisierung von Cache-Effizienz, Speicherlokalität und CPU-Speicherlatenzen.  
 Das Projekt zeigt praxisnah, warum zeilenweiser Speicherzugriff deutlich schneller ist als spaltenweiser Zugriff — insbesondere bei großen Matrizen, die mehrere Cache-Ebenen und den RAM passieren.
-![GUI Screenshot](assets/cpuvisualizer.png)
+![GUI](./assets/cpuvisualizer.png)
 ---
 
 ##  Features
