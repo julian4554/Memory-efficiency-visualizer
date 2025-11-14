@@ -33,17 +33,16 @@ namespace gui {
     // Globale Zustände
 
     static std::atomic<bool> measuring{false}; //atomic für parallelität
-    static std::vector<MeasureResult> results; // dynamische Liste aller Messresultate
+
     static std::string console_output;
 
     // Hintergrund-Thread für Messung
 
     static void background_measure(size_t N) {
         measuring = true; // signal an GUI -> Messung läuft
-        results.clear(); // alte Messdaten löschen
         console_output.clear(); // alte Messdaten löschen
 
-        results = run_measurements(N, [](const std::string &line) {
+        run_measurements(N, [](const std::string &line) {
             //startet die Messlogik in measure_runner.cpp
             console_output += line; // gui console output
         });
@@ -390,15 +389,13 @@ namespace gui {
 
             float total_w = ImGui::GetContentRegionAvail().x;
             float total_h = ImGui::GetContentRegionAvail().y;
-            float left_w = total_w * 0.6f;
-            float right_w = total_w * 0.4f;
 
 
             // Spalte LINKS (zweigeteilt)
             ImGui::BeginGroup();
             {
                 // --- Konsole oben ---
-                ImGui::BeginChild("console", ImVec2(left_w, total_h * 0.55f), true,
+                ImGui::BeginChild("console", ImVec2(total_w, total_h * 0.55f), true,
                                   ImGuiWindowFlags_HorizontalScrollbar);
                 ImGui::TextUnformatted(console_output.c_str());
                 if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
@@ -406,7 +403,7 @@ namespace gui {
                 ImGui::EndChild();
 
                 // --- Anleitung unten ---
-                ImGui::BeginChild("instructions", ImVec2(left_w, total_h * 0.40f), true);
+                ImGui::BeginChild("instructions", ImVec2(total_w, total_h * 0.40f), true);
                 ImGui::SeparatorText("Anleitung");
                 ImGui::BulletText("1. Wähle mit dem Regler oben eine Matrixgröße (2^x).");
                 ImGui::BulletText("2. Starte die Messung, um die CPU-Zugriffszeiten zu vergleichen.");
@@ -418,46 +415,6 @@ namespace gui {
             ImGui::EndGroup();
 
 
-            // Spalte RECHTS (ein Block, länglich)
-
-            ImGui::SameLine();
-            ImGui::BeginChild("code_example", ImVec2(right_w, 576), true);
-            ImGui::PushFont(io.Fonts->Fonts[1]);
-            ImGui::TextWrapped(
-                "Beide Schleifen bearbeiten dieselbe Matrix, aber in unterschiedlicher Reihenfolge.\n"
-                "Die CPU ist extrem schnell, wenn Daten dicht nebeneinander liegen (zeilenweise),\n"
-                "und extrem langsam, wenn jeder Zugriff ein neuer Cache-Miss ist (spaltenweise).\n"
-                "If (mode == 0){\n"
-                "for (i = 0; i < N; i++) {\n"
-                "    row = &data[i * N];\n"
-                "    for (j = 0; j < N; j++) {\n"
-                "        row[j] += 1;\n"
-                "    }\n"
-                "}\n"
-                "-> Greift auf Speicher in der Reihenfolge zu, wie er im RAM liegt.\n"
-                "-> Sehr gute Cache-Lokalität: viele Werte liegen in derselben 64-Byte-Cacheline.\n"
-                "-> CPU-Prefetcher erkennt das Muster und lädt voraus.\n"
-                "=> Wenige Cache-Misses, sehr schnell.\n\n"
-                "else (mode == 1){\n"
-                "for (j = 0; j < N; j++) {\n"
-                "    col = &data[j];\n"
-                "    for (i = 0; i < N; i++) {\n"
-                "        col[i * N] += 1;\n"
-                "    }\n"
-                "}\n"
-                "-> Springt im Speicher in sehr großen Abständen.\n"
-                "-> Jede Iteration landet fast immer in einer neuen Cacheline und oft auf einer neuen RAM-Page.\n"
-                "-> Keine sequentielle Ordnung -> Prefetcher kann nicht helfen.\n"
-                "=> Viele Cache-Misses, viel langsamer, besonders bei großen Matrizen.\n\n"
-
-
-            );
-
-
-            ImGui::PopFont();
-            ImGui::EndChild();
-
-
             ImGui::End();
 
             // --- Rendering ---
@@ -465,7 +422,7 @@ namespace gui {
             int dw, dh;
             SDL_GL_GetDrawableSize(window, &dw, &dh);
             glViewport(0, 0, dw, dh);
-            glClearColor(0.1f, 0.1f, 0.12f, 1.0f);
+            glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             SDL_GL_SwapWindow(window);

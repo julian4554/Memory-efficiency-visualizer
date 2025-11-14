@@ -12,13 +12,6 @@ struct MeasureResult {
 
     double avg_row;
     double avg_col;
-
-    double med_row;
-    double med_col;
-
-    double std_row;
-    double std_col;
-
     double ratio;
 };
 
