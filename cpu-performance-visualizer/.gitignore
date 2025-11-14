@@ -1,0 +1,22 @@
+# Build dirs
+cmake-build-*
+build/
+out/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+Makefile
+
+# Binaries
+*.exe
+*.dll
+*.obj
+*.pdb
+*.lib
+*.a
+
+# IDE
+.idea/
+.vscode/
+*.iml
