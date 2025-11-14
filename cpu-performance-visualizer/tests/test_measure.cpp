@@ -1,6 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
+// ==================== TESTS ======================
 extern "C" {
 uint64_t measure_access_time(int *data, size_t N, int mode);
 }

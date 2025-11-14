@@ -1,6 +1,5 @@
 // gui.cpp
-// SDL2 + OpenGL + ImGui + ImPlot GUI
-// CPU Performance Visualizer – 11.11.2025
+// SDL2 + OpenGL + ImGui
 
 #include "gui.h"
 #include <SDL.h>
@@ -12,15 +11,13 @@
 #include <vector>
 #include <string>
 
-// ImGui + ImPlot
+// ImGui
 #include "imgui.h"
-#include "implot.h"
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_opengl3.h"
 
 // Projektinterne Header
 #include "measure.h"
-#include "stats.h"
 #include "../core/measure_runner.h"
 
 
@@ -33,45 +30,45 @@
 // https://github.com/doctest/doctest/blob/master/doc/markdown/tutorial.md Testing (Doctest), lightweight googltest alternative google -> too heavy
 // Windows Memory und mehr Wissen: Windows Internals 7th Edition: System architecture, processes, threads, memory management, and more, Part 1 von Pavel Yosifovich, Mark E. Russinovich, Alex Ionescu, David A. Solomon
 namespace gui {
-    // -------------------------------------------------------------
     // Globale Zustände
-    // -------------------------------------------------------------
-    static std::atomic<bool> measuring{false};
-    static std::vector<MeasureResult> results;
+
+    static std::atomic<bool> measuring{false}; //atomic für parallelität
+    static std::vector<MeasureResult> results; // dynamische Liste aller Messresultate
     static std::string console_output;
 
-    // -------------------------------------------------------------
     // Hintergrund-Thread für Messung
-    // -------------------------------------------------------------
+
     static void background_measure(size_t N) {
-        measuring = true;
-        results.clear();
-        console_output.clear();
+        measuring = true; // signal an GUI -> Messung läuft
+        results.clear(); // alte Messdaten löschen
+        console_output.clear(); // alte Messdaten löschen
 
         results = run_measurements(N, [](const std::string &line) {
-            console_output += line;
+            //startet die Messlogik in measure_runner.cpp
+            console_output += line; // gui console output
         });
 
         measuring = false;
+        // nach Abschluss wird die gui aus dem Messzustand geholt um Buttons dynamisch gestalten zu könnenn
     }
 
-    // -------------------------------------------------------------
-    // Haupt-GUI-Schleife
-    // -------------------------------------------------------------
+
+    // Haupt-GUI-Schleife; initialisiert die sdl subsysteme die für die GUI benötigt werden
+
     int run() {
         if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
             SDL_Log("SDL_Init Error: %s", SDL_GetError());
             return 1;
         }
 
-        // --- OpenGL-Kontext konfigurieren ---
+        // --- OpenGL-Kontext konfigurieren; best practice; buffering etc---
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-        // --- Fenster erzeugen ---
+        // --- Fenster erzeugen mit Größe und nicht Vollbild ---
         SDL_Window *window = SDL_CreateWindow(
             "CPU Performance Visualizer",
             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -85,7 +82,6 @@ namespace gui {
         // --- ImGui initialisieren ---
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
-        ImPlot::CreateContext();
         ImGuiIO &io = ImGui::GetIO();
         (void) io;
         ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
@@ -96,7 +92,7 @@ namespace gui {
         io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/segoeui.ttf", 18.0f);
         io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/consola.ttf", 16.0f);
 
-        // --- Style ---
+        // --- Style, standard ColorsDark mit eigenen Akzenten wie Rot zB, wird später in Logik nochmal verwendet für dynamische buttonfarben---
         ImGui::StyleColorsDark();
         ImGuiStyle &style = ImGui::GetStyle();
         style.Colors[ImGuiCol_Button] = ImVec4(0.80f, 0.25f, 0.25f, 0.40f); // normal rot
@@ -113,7 +109,7 @@ namespace gui {
         style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.2f, 0.7f, 0.2f, 1.0f);
 
 
-        // --- Fensterhandle für Dragging ---
+        // --- Fensterhandle für Dragging ohne laggs ---
         SDL_SysWMinfo wmInfo;
         SDL_VERSION(&wmInfo.version);
         SDL_GetWindowWMInfo(window, &wmInfo);
@@ -121,10 +117,11 @@ namespace gui {
 
         bool running = true;
 
-        // ---------------------------------------------------------
+
         // Hauptloop
-        // ---------------------------------------------------------
+
         while (running) {
+            // so lange gui läuft werden SDL events verarbeitet
             SDL_Event e;
             while (SDL_PollEvent(&e)) {
                 ImGui_ImplSDL2_ProcessEvent(&e);
@@ -132,16 +129,15 @@ namespace gui {
                 if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) running = false;
             }
 
-            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplOpenGL3_NewFrame(); // backend Aufrufe für die frames (render/shader/aktualisiert EIngaben)
             ImGui_ImplSDL2_NewFrame();
             ImGui::NewFrame();
 
             int window_width, window_height;
             SDL_GetWindowSize(window, &window_width, &window_height);
 
-            // -----------------------------------------------------
             // Title-Bar
-            // -----------------------------------------------------
+
             ImGui::SetNextWindowPos(ImVec2(0, 0));
             ImGui::SetNextWindowSize(ImVec2((float) window_width, 30));
             ImGui::Begin("TitleBar", nullptr,
@@ -156,17 +152,18 @@ namespace gui {
             float spacing = 5.0f;
             ImGui::SameLine(ImGui::GetWindowWidth() - (button_size + spacing) * 2);
 
-            if (ImGui::Button("_", ImVec2(button_size, button_size)))
+            if (ImGui::Button("_", ImVec2(button_size, button_size))) // minimieren button oben rechts
                 SDL_MinimizeWindow(window);
 
-            ImGui::SameLine();
+            ImGui::SameLine(); // heißt in der gui dass das nächste Element in der selben Zeile angeordnet werden soll
             if (ImGui::Button("X", ImVec2(button_size, button_size))) {
+                // schließen button oben rechts
                 SDL_Event quit;
                 quit.type = SDL_QUIT;
                 SDL_PushEvent(&quit);
             }
 
-            // Draggen
+            // Draggen on click nach dem oben extrahiert wurde
             if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
                 ReleaseCapture();
                 SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
@@ -174,9 +171,9 @@ namespace gui {
 
             ImGui::End();
 
-            // -----------------------------------------------------
+
             // Hauptbereich
-            // -----------------------------------------------------
+
             ImGui::SetNextWindowPos(ImVec2(0, 30));
             ImGui::SetNextWindowSize(ImVec2((float) window_width, (float) window_height - 30));
             ImGui::Begin("CPU Cache Visualizer", nullptr,
@@ -216,15 +213,16 @@ namespace gui {
                     style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.70f, 0.20f, 0.20f, 1.00f);
                     break;
             }
-            size_t N = 1ULL << N_exp;
-            double megabytes = (double) (N * N * sizeof(int)) / (1024.0 * 1024.0);
+            size_t N = 1ULL << N_exp; // Berechnung der Matrix
+            double megabytes = (double) (N * N * sizeof(int)) / (1024.0 * 1024.0); // Berechnung speicherverbrauch in MB
             std::string speicherform[4] = {"L1 Cache", "L2 Cache", "L3 Cache", "RAM-Speicher"};
+            // Liste auf die gleich zugegriffen wird
             int level = 0;
-            if (megabytes < 0.384) level = 0;
-            else if (megabytes < 6.0) level = 1;
-            else if (megabytes < 32.0) level = 2;
-            else level = 3;
-            ImGui::Text("Aktuelle Matrix Größe: %zu x %zu (~%.2f MB) Speicher: %s", N, N, megabytes,
+            if (megabytes < 0.384) level = 0; // passt in L1
+            else if (megabytes < 6.0) level = 1; // passt in L2
+            else if (megabytes < 32.0) level = 2; // passt in L3
+            else level = 3; // Ram Beteiligung
+            ImGui::Text("Aktuelle Matrix Größe: %zu x %zu (~%.2f MB) Speicher: %s", N, N, megabytes, //Ausgabe gui
                         speicherform[level].c_str()
             );
 
@@ -240,7 +238,7 @@ namespace gui {
             if (ImGui::Button("Hinweis", ImVec2(100, 40))) {
                 ImGui::OpenPopup("Hinweis1");
             }
-
+            // --- PopUp ---
             if (ImGui::BeginPopupModal("Hinweis1", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
                 ImGui::TextWrapped("Warum Spaltenzugriffe mehr CPU-Zyklen benötigen\n");
                 ImGui::Separator();
@@ -380,7 +378,7 @@ namespace gui {
 
                 ImGui::EndChild();
 
-                ImGui::Separator();
+                ImGui::Separator(); // serperator linie
                 if (ImGui::Button("Schließen", ImVec2(120, 0)))
                     ImGui::CloseCurrentPopup();
                 ImGui::EndPopup();
@@ -395,9 +393,8 @@ namespace gui {
             float left_w = total_w * 0.6f;
             float right_w = total_w * 0.4f;
 
-            // ---------------------
+
             // Spalte LINKS (zweigeteilt)
-            // ---------------------
             ImGui::BeginGroup();
             {
                 // --- Konsole oben ---
@@ -420,9 +417,9 @@ namespace gui {
             }
             ImGui::EndGroup();
 
-            // ---------------------
+
             // Spalte RECHTS (ein Block, länglich)
-            // ---------------------
+
             ImGui::SameLine();
             ImGui::BeginChild("code_example", ImVec2(right_w, 576), true);
             ImGui::PushFont(io.Fonts->Fonts[1]);
@@ -474,21 +471,20 @@ namespace gui {
             SDL_GL_SwapWindow(window);
         }
 
-        // --- Cleanup ---
-        ImGui_ImplOpenGL3_Shutdown();
+        // --- Cleanup Phase nach Beenden der Hauptschleife = Programm schließen ---
+        ImGui_ImplOpenGL3_Shutdown(); // Backend shutdown
 
-        ImGui_ImplSDL2_Shutdown();
+        ImGui_ImplSDL2_Shutdown(); // Backend shutdown
 
-        ImPlot::DestroyContext();
 
-        ImGui::DestroyContext();
+        ImGui::DestroyContext(); // haupt imgui kontext schließen
 
-        SDL_GL_DeleteContext(gl_context);
-        SDL_DestroyWindow(window);
+        SDL_GL_DeleteContext(gl_context); //opengl kontext schließen
+        SDL_DestroyWindow(window); // sdl schließen; Systemressourcen freigeben
 
-        SDL_Quit();
+        SDL_Quit(); // sdl herunterfahren
 
         return
-                0;
+                0; // return 0 wenn Gui erfolgreich gelebt hat
     }
 } // namespace gui

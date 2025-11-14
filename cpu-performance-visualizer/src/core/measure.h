@@ -8,7 +8,9 @@ extern "C" {
 
 
 
-// Verhindert C++ Name-Mangling bei C-Funktionen
+// Verhindert error bei C-Funktionen
+
+
 #endif
 // Misst, wie viele CPU-Taktzyklen ein Speicherzugriff auf 'data' mit gegebener Größe benötigt.
 // data: Zeiger auf das Datenarray, das im Speicher bearbeitet wird.

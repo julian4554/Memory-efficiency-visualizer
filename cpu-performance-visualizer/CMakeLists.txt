@@ -34,8 +34,6 @@ add_library(core STATIC
         src/core/measure.h
         src/core/measure_runner.cpp
         src/core/measure_runner.h
-        src/utils/stats.cpp
-        src/utils/stats.h
 )
 
 target_include_directories(core PUBLIC

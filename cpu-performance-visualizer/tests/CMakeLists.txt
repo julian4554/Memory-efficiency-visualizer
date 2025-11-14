@@ -11,7 +11,6 @@ add_executable(unit_tests
 target_sources(unit_tests PRIVATE
         ${CMAKE_SOURCE_DIR}/src/core/measure.c
         ${CMAKE_SOURCE_DIR}/src/core/measure_runner.cpp
-        ${CMAKE_SOURCE_DIR}/src/utils/stats.cpp
 )
 
 # Header-Pfade

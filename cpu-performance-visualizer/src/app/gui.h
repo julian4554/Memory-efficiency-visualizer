@@ -1,5 +1,4 @@
 // Simple SDL2 GUI interface for the CPU Performance Visualizer
-// Created by julia on 07.11.2025.
 
 #ifndef CPU_PERFORMANCE_VISUALIZER_GUI_H
 #define CPU_PERFORMANCE_VISUALIZER_GUI_H
