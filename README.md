@@ -44,6 +44,7 @@ Mit Funktionen wie:
 ---
 
 ##  Vermittelte technische Konzepte
+![Erklärungen](/cpu-performance-visualizer/assets/technisch.png)
 
 Das Projekt macht folgende Hardware- und Betriebssystemkonzepte sichtbar:
 
