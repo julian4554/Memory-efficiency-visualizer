@@ -14,31 +14,33 @@
 
 uint64_t measure_access_time(int *data, size_t N, int mode) {
     unsigned int aux;
+    volatile int sink = 0; // verhindert Optimierungen des compilers im release mode
 
-    // Startzeitpunk in CPU Zyklen
     uint64_t start = __rdtscp(&aux);
 
     if (mode == 0) {
-        // Zeilenweise (ROW MAJOR FRIENDLY)
-        // Durchläuft die Matrix in der Reihenfolge, wie sie im Speicher liegt, Linear
         for (size_t i = 0; i < N; i++) {
             int *row = &data[i * N];
             for (size_t j = 0; j < N; j++) {
                 row[j] += 1;
+                sink += row[j];
+                // zwingt den Compiler, die Operation wirklich auszuführen (fix um das problem des debug/release mode zu lösen) compiler würde sonst optimieren und überspringen
             }
         }
     } else {
-        // Spaltenweise ( Row Major feindlich)
-        // Springt durch den Speicher in großen Abständen: data[0*N + j], data[1*N + j], data[2*N + j], etc.
         for (size_t j = 0; j < N; j++) {
             int *col = &data[j];
             for (size_t i = 0; i < N; i++) {
                 col[i * N] += 1;
+                sink += col[i * N]; // auch hier
             }
         }
     }
-    // Endzeitpunkt wird gespeichert und mit start Variable subtrahiert um gelaufene Zyklen zu erfassen
+
     uint64_t end = __rdtscp(&aux);
+
+    // kleine Nutzung, damit sink wirklich im final code bleibt
+    (void) sink;
+
     return end - start;
 }
-

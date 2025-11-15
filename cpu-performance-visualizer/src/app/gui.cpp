@@ -32,23 +32,21 @@
 namespace gui {
     // Globale Zustände
 
-    static std::atomic<bool> measuring{false}; //atomic für parallelität
+    static std::atomic measuring{false}; //atomic für parallelität
 
     static std::string console_output;
 
     // Hintergrund-Thread für Messung
 
     static void background_measure(size_t N) {
-        measuring = true; // signal an GUI -> Messung läuft
-        console_output.clear(); // alte Messdaten löschen
+        measuring = true;
+        console_output.clear();
 
         run_measurements(N, [](const std::string &line) {
-            //startet die Messlogik in measure_runner.cpp
-            console_output += line; // gui console output
+            console_output += line;
         });
 
         measuring = false;
-        // nach Abschluss wird die gui aus dem Messzustand geholt um Buttons dynamisch gestalten zu könnenn
     }
 
 
@@ -60,14 +58,14 @@ namespace gui {
             return 1;
         }
 
-        // --- OpenGL-Kontext konfigurieren; best practice; buffering etc---
+        //OpenGL-Kontext konfigurieren; best practice; buffering etc
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-        // --- Fenster erzeugen mit Größe und nicht Vollbild ---
+        //  Fenster erzeugen mit Größe und nicht Vollbild
         SDL_Window *window = SDL_CreateWindow(
             "CPU Performance Visualizer",
             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -78,7 +76,7 @@ namespace gui {
         SDL_GLContext gl_context = SDL_GL_CreateContext(window);
         SDL_GL_SetSwapInterval(1); // VSync aktivieren
 
-        // --- ImGui initialisieren ---
+        // Gui initialisieren
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO &io = ImGui::GetIO();
@@ -87,11 +85,11 @@ namespace gui {
         ImGui_ImplOpenGL3_Init("#version 130");
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-        // --- Fonts ---
+        // Fonts
         io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/segoeui.ttf", 18.0f);
         io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/consola.ttf", 16.0f);
 
-        // --- Style, standard ColorsDark mit eigenen Akzenten wie Rot zB, wird später in Logik nochmal verwendet für dynamische buttonfarben---
+        // Style, standard ColorsDark mit eigenen Akzenten wie Rot zB, wird später in Logik nochmal verwendet für dynamische buttonfarben
         ImGui::StyleColorsDark();
         ImGuiStyle &style = ImGui::GetStyle();
         style.Colors[ImGuiCol_Button] = ImVec4(0.80f, 0.25f, 0.25f, 0.40f); // normal rot
@@ -108,7 +106,7 @@ namespace gui {
         style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.2f, 0.7f, 0.2f, 1.0f);
 
 
-        // --- Fensterhandle für Dragging ohne laggs ---
+        // Fensterhandle für Dragging ohne laggs
         SDL_SysWMinfo wmInfo;
         SDL_VERSION(&wmInfo.version);
         SDL_GetWindowWMInfo(window, &wmInfo);
@@ -389,13 +387,15 @@ namespace gui {
 
             float total_w = ImGui::GetContentRegionAvail().x;
             float total_h = ImGui::GetContentRegionAvail().y;
+            float left_w = total_w * 0.6f;
+            float right_w = total_w * 0.4f;
 
 
             // Spalte LINKS (zweigeteilt)
             ImGui::BeginGroup();
             {
                 // --- Konsole oben ---
-                ImGui::BeginChild("console", ImVec2(total_w, total_h * 0.55f), true,
+                ImGui::BeginChild("console", ImVec2(left_w, total_h * 0.55f), true,
                                   ImGuiWindowFlags_HorizontalScrollbar);
                 ImGui::TextUnformatted(console_output.c_str());
                 if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
@@ -403,7 +403,7 @@ namespace gui {
                 ImGui::EndChild();
 
                 // --- Anleitung unten ---
-                ImGui::BeginChild("instructions", ImVec2(total_w, total_h * 0.40f), true);
+                ImGui::BeginChild("instructions", ImVec2(left_w, total_h * 0.40f), true);
                 ImGui::SeparatorText("Anleitung");
                 ImGui::BulletText("1. Wähle mit dem Regler oben eine Matrixgröße (2^x).");
                 ImGui::BulletText("2. Starte die Messung, um die CPU-Zugriffszeiten zu vergleichen.");
@@ -415,6 +415,46 @@ namespace gui {
             ImGui::EndGroup();
 
 
+            // Spalte RECHTS (ein Block, länglich)
+
+            ImGui::SameLine();
+            ImGui::BeginChild("code_example", ImVec2(right_w, 576), true);
+            ImGui::PushFont(io.Fonts->Fonts[1]);
+            ImGui::TextWrapped(
+                "Beide Schleifen bearbeiten dieselbe Matrix, aber in unterschiedlicher Reihenfolge.\n"
+                "Die CPU ist extrem schnell, wenn Daten dicht nebeneinander liegen (zeilenweise),\n"
+                "und extrem langsam, wenn jeder Zugriff ein neuer Cache-Miss ist (spaltenweise).\n"
+                "If (mode == 0){\n"
+                "for (i = 0; i < N; i++) {\n"
+                "    row = &data[i * N];\n"
+                "    for (j = 0; j < N; j++) {\n"
+                "        row[j] += 1;\n"
+                "    }\n"
+                "}\n"
+                "-> Greift auf Speicher in der Reihenfolge zu, wie er im RAM liegt.\n"
+                "-> Sehr gute Cache-Lokalität: viele Werte liegen in derselben 64-Byte-Cacheline.\n"
+                "-> CPU-Prefetcher erkennt das Muster und lädt voraus.\n"
+                "=> Wenige Cache-Misses, sehr schnell.\n\n"
+                "else (mode == 1){\n"
+                "for (j = 0; j < N; j++) {\n"
+                "    col = &data[j];\n"
+                "    for (i = 0; i < N; i++) {\n"
+                "        col[i * N] += 1;\n"
+                "    }\n"
+                "}\n"
+                "-> Springt im Speicher in sehr großen Abständen.\n"
+                "-> Jede Iteration landet fast immer in einer neuen Cacheline und oft auf einer neuen RAM-Page.\n"
+                "-> Keine sequentielle Ordnung -> Prefetcher kann nicht helfen.\n"
+                "=> Viele Cache-Misses, viel langsamer, besonders bei großen Matrizen.\n\n"
+
+
+            );
+
+
+            ImGui::PopFont();
+            ImGui::EndChild();
+
+
             ImGui::End();
 
             // --- Rendering ---
@@ -422,7 +462,7 @@ namespace gui {
             int dw, dh;
             SDL_GL_GetDrawableSize(window, &dw, &dh);
             glViewport(0, 0, dw, dh);
-            glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+            glClearColor(0.1f, 0.1f, 0.12f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             SDL_GL_SwapWindow(window);
